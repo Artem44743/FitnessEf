@@ -5,4 +5,4 @@ var connectString = "Host=localhost;Port=5432;Database=Fitnes;Username=postgres;
 using var connection = new NpgsqlConnection(connectString);
 
 connection.Open();
-Console.WriteLine("Подключение к БДхрень успешно!");
+Console.WriteLine("Подключение к БД успешно!");
