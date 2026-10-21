@@ -5,6 +5,7 @@ namespace FitnessEf;
 public sealed class FitnessContext : DbContext
 {
     public DbSet<Client> Clients => Set<Client>();
+    public DbSet<Visit> Visits => Set<Visit>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -19,6 +20,7 @@ public sealed class FitnessContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Конфигурация клиентов
         modelBuilder.Entity<Client>(entity =>
         {
             entity.ToTable("clients");
@@ -31,6 +33,24 @@ public sealed class FitnessContext : DbContext
             entity.Property(c => c.Email).HasColumnName("email").HasMaxLength(254);
             entity.Property(c => c.RegistrationDate).HasColumnName("registration_date").HasColumnType("date").IsRequired();
             entity.Property(c => c.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+        });
+
+        // Конфигурация посещений (Задание 9)
+        modelBuilder.Entity<Visit>(entity =>
+        {
+            entity.ToTable("visits");
+            entity.HasKey(v => v.VisitId);
+
+            entity.Property(v => v.VisitId).HasColumnName("visit_id").ValueGeneratedOnAdd();
+            entity.Property(v => v.ClientId).HasColumnName("client_id").IsRequired();
+            entity.Property(v => v.VisitDate).HasColumnName("visit_date").HasColumnType("date").IsRequired();
+            entity.Property(v => v.Note).HasColumnName("note").HasMaxLength(500);
+
+            // Настройка связи: один клиент - много посещений
+            entity.HasOne(v => v.Client)
+                  .WithMany(c => c.Visits)
+                  .HasForeignKey(v => v.ClientId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

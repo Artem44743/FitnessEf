@@ -15,4 +15,5 @@ public sealed class Client
         DateOnly.FromDateTime(DateTime.Today);
 
     public string Status { get; set; } = "active";
+    public List<Visit> Visits { get; set; } = new();
 }
