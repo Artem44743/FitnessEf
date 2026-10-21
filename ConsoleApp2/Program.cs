@@ -1,68 +1,44 @@
 ﻿using FitnessEf;
 using Microsoft.EntityFrameworkCore;
 
-
 Environment.SetEnvironmentVariable("FITNESS_EF_CONNECTION", "Host=localhost;Port=5432;Database=FitnessEfTraining;Username=postgres;Password=123");
 
 await using var db = new FitnessContext();
 
-Console.WriteLine("=== 5.1. Фильтрация (активные клиенты) ===");
-var activeClients = await db.Clients
-    .AsNoTracking()
-    .Where(c => c.Status == "active")
-    .OrderBy(c => c.LastName)
-    .ToListAsync();
+Console.WriteLine("=== 6.2. Проверка пользовательского ввода ===");
+Console.Write("Введите имя: ");
+string firstName = Console.ReadLine()?.Trim() ?? string.Empty;
 
-foreach (var c in activeClients)
-    Console.WriteLine($"- {c.FirstName} {c.LastName}");
+Console.Write("Введите фамилию: ");
+string lastName = Console.ReadLine()?.Trim() ?? string.Empty;
 
-Console.WriteLine("\n=== 5.2. Поиск по фамилии ===");
-Console.Write("Фрагмент фамилии: ");
-string term = Console.ReadLine()?.Trim() ?? string.Empty;
-if (term.Length == 0)
-    Console.WriteLine("Строка поиска не задана.");
-else
+if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
 {
-    var found = await db.Clients.AsNoTracking()
-        .Where(c => c.LastName.Contains(term))
-        .OrderBy(c => c.LastName)
-        .ToListAsync();
-    foreach (var c in found)
-        Console.WriteLine($"{c.ClientId}: {c.FirstName} {c.LastName}");
+    Console.WriteLine("Ошибка: Имя и фамилия обязательны.");
+    return;
 }
 
-Console.WriteLine("\n=== 5.3. Поиск по ID ===");
-Console.Write("ID клиента (например, 1): ");
-if (int.TryParse(Console.ReadLine(), out int id) && id > 0)
+var client = new Client
 {
-    var client = await db.Clients.FindAsync(id);
-    if (client is null)
-        Console.WriteLine("Клиент не найден.");
-    else
-        Console.WriteLine($"{client.ClientId}: {client.FirstName} {client.LastName}");
-}
-else
+    FirstName = firstName,
+    LastName = lastName,
+    RegistrationDate = DateOnly.FromDateTime(DateTime.Today),
+    Status = "active"
+};
+
+Console.WriteLine("\n=== 6.1 и 6.3. Сохранение и обработка ошибок ===");
+
+try
 {
-    Console.WriteLine("ID должен быть положительным целым числом.");
+    db.Clients.Add(client);
+
+    int saved = await db.SaveChangesAsync();
+
+    Console.WriteLine($"Сохранено изменений: {saved}");
+    Console.WriteLine($"Клиент успешно добавлен. ID нового клиента: {client.ClientId}");
 }
-
-Console.WriteLine("\n=== 5.4. Агрегаты (количество) ===");
-int total = await db.Clients.CountAsync();
-bool hasInactive = await db.Clients.AnyAsync(c => c.Status == "inactive");
-int activeCount = await db.Clients.CountAsync(c => c.Status == "active");
-
-Console.WriteLine($"Всего клиентов: {total}");
-Console.WriteLine($"Активных клиентов: {activeCount}");
-Console.WriteLine(hasInactive ? "Есть неактивные клиенты." : "Неактивные клиенты отсутствуют.");
-
-Console.WriteLine("\n=== 5.5. Постраничная загрузка (Стр 1) ===");
-int page = 1;
-int pageSize = 5;
-var pageOfClients = await db.Clients.AsNoTracking()
-    .OrderBy(c => c.ClientId)
-    .Skip((page - 1) * pageSize)
-    .Take(pageSize)
-    .ToListAsync();
-
-foreach (var c in pageOfClients)
-    Console.WriteLine($"{c.ClientId}: {c.FirstName}");
+catch (DbUpdateException ex)
+{
+    Console.WriteLine("Не удалось сохранить клиента. Проверьте данные и ограничения БД.");
+    Console.WriteLine("Детали ошибки: " + ex.GetBaseException().Message);
+}
