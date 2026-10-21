@@ -3,55 +3,154 @@ using Microsoft.EntityFrameworkCore;
 
 Environment.SetEnvironmentVariable("FITNESS_EF_CONNECTION", "Host=localhost;Port=5432;Database=FitnessEfTraining;Username=postgres;Password=123");
 
-try
+while (true)
+{
+    Console.WriteLine("\n--- МЕНЮ ---");
+    Console.WriteLine("1. Список клиентов");
+    Console.WriteLine("2. Найти клиента по ID");
+    Console.WriteLine("3. Добавить клиента");
+    Console.WriteLine("4. Изменить телефон/статус");
+    Console.WriteLine("5. Удалить клиента");
+    Console.WriteLine("6. Статистика");
+    Console.WriteLine("0. Выход");
+    Console.Write("Выбор: ");
+
+    string choice = Console.ReadLine() ?? string.Empty;
+    if (choice == "0") break;
+
+    try
+    {
+        switch (choice)
+        {
+            case "1": await ListClientsAsync(); break;
+            case "2": await FindClientAsync(); break;
+            case "3": await AddClientAsync(); break;
+            case "4": await UpdateClientAsync(); break;
+            case "5": await DeleteClientAsync(); break;
+            case "6": await ShowStatisticsAsync(); break;
+            default: Console.WriteLine("Неизвестный пункт меню."); break;
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Ошибка: {ex.Message}");
+    }
+}
+
+// --- РЕАЛИЗАЦИЯ МЕТОДОВ ---
+
+async Task ListClientsAsync()
 {
     await using var db = new FitnessContext();
+    var clients = await db.Clients.AsNoTracking()
+        .OrderBy(c => c.LastName).ThenBy(c => c.FirstName)
+        .ToListAsync();
 
-    Console.WriteLine("=== 11.2. Асинхронное выполнение ===");
-    var count = await db.Clients.CountAsync();
-    var first = await db.Clients
-        .AsNoTracking()
-        .OrderBy(c => c.ClientId)
-        .FirstOrDefaultAsync();
+    Console.WriteLine("\nСписок клиентов:");
+    foreach (var c in clients)
+        Console.WriteLine($"{c.ClientId}: {c.LastName} {c.FirstName} | Тел: {c.Phone ?? "нет"} | Статус: {c.Status}");
+}
 
-    Console.WriteLine($"Всего клиентов (CountAsync): {count}");
-    if (first != null)
-        Console.WriteLine($"Первый клиент (FirstOrDefaultAsync): {first.FirstName} {first.LastName}");
-
-    Console.WriteLine("\n=== 11.3. Tracking vs NoTracking ===");
-
-    var noTrackingList = await db.Clients.AsNoTracking().ToListAsync();
-    Console.WriteLine($"Прочитано без отслеживания: {noTrackingList.Count} записей.");
-
-    int idToUpdate = 1;
-    var clientToUpdate = await db.Clients.FirstOrDefaultAsync(c => c.ClientId == idToUpdate);
-    if (clientToUpdate is not null)
+async Task FindClientAsync()
+{
+    Console.Write("Введите ID клиента: ");
+    if (!int.TryParse(Console.ReadLine(), out int id) || id <= 0)
     {
-        Console.WriteLine($"Старый статус клиента ID {idToUpdate}: {clientToUpdate.Status}");
-        clientToUpdate.Status = "inactive";
-        await db.SaveChangesAsync();
-        Console.WriteLine("Статус изменен на 'inactive' (сохранено).");
+        Console.WriteLine("Неверный ID.");
+        return;
     }
 
-    Console.WriteLine("\n=== 11.4. Диагностика SQL ===");
-    var query = db.Clients
-        .Where(c => c.Status == "active")
-        .OrderBy(c => c.LastName);
+    await using var db = new FitnessContext();
+    var client = await db.Clients.FindAsync(id);
+    if (client == null)
+        Console.WriteLine("Клиент не найден.");
+    else
+        Console.WriteLine($"{client.ClientId}: {client.LastName} {client.FirstName} | Тел: {client.Phone ?? "нет"} | Статус: {client.Status}");
+}
 
-    Console.WriteLine("Сгенерированный SQL-запрос для активных клиентов:");
-    Console.WriteLine(query.ToQueryString());
-}
-catch (InvalidOperationException ex)
+async Task AddClientAsync()
 {
-    Console.WriteLine($"Ошибка конфигурации: {ex.Message}");
+    Console.Write("Имя: ");
+    string firstName = Console.ReadLine()?.Trim() ?? "";
+    Console.Write("Фамилия: ");
+    string lastName = Console.ReadLine()?.Trim() ?? "";
+
+    if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+    {
+        Console.WriteLine("Имя и фамилия обязательны.");
+        return;
+    }
+
+    await using var db = new FitnessContext();
+    var client = new Client
+    {
+        FirstName = firstName,
+        LastName = lastName,
+        RegistrationDate = DateOnly.FromDateTime(DateTime.Today),
+        Status = "active"
+    };
+
+    db.Clients.Add(client);
+    await db.SaveChangesAsync();
+    Console.WriteLine($"Клиент добавлен. ID: {client.ClientId}");
 }
-catch (DbUpdateException ex)
+
+async Task UpdateClientAsync()
 {
-    Console.WriteLine("Ошибка сохранения данных.");
-    Console.WriteLine(ex.GetBaseException().Message);
+    Console.Write("ID клиента для изменения: ");
+    if (!int.TryParse(Console.ReadLine(), out int id)) return;
+
+    await using var db = new FitnessContext();
+    var client = await db.Clients.FindAsync(id);
+    if (client == null)
+    {
+        Console.WriteLine("Клиент не найден.");
+        return;
+    }
+
+    Console.Write($"Новый телефон (текущий: {client.Phone ?? "нет"}): ");
+    string phone = Console.ReadLine()?.Trim() ?? "";
+    if (!string.IsNullOrEmpty(phone)) client.Phone = phone;
+
+    Console.Write($"Новый статус (текущий: {client.Status}): ");
+    string status = Console.ReadLine()?.Trim() ?? "";
+    if (!string.IsNullOrEmpty(status)) client.Status = status;
+
+    await db.SaveChangesAsync();
+    Console.WriteLine("Данные обновлены.");
 }
-catch (Exception ex)
+
+async Task DeleteClientAsync()
 {
-    Console.WriteLine("Произошла непредвиденная ошибка.");
-    Console.WriteLine(ex.Message);
+    Console.Write("ID клиента для удаления: ");
+    if (!int.TryParse(Console.ReadLine(), out int id)) return;
+
+    await using var db = new FitnessContext();
+    var client = await db.Clients.FindAsync(id);
+    if (client == null)
+    {
+        Console.WriteLine("Клиент не найден.");
+        return;
+    }
+
+    try
+    {
+        db.Clients.Remove(client);
+        await db.SaveChangesAsync();
+        Console.WriteLine("Клиент удален.");
+    }
+    catch (DbUpdateException)
+    {
+        Console.WriteLine("Нельзя удалить клиента, так как у него есть связанные посещения (ограничение внешнего ключа).");
+    }
+}
+
+async Task ShowStatisticsAsync()
+{
+    await using var db = new FitnessContext();
+    int total = await db.Clients.CountAsync();
+    int active = await db.Clients.CountAsync(c => c.Status == "active");
+
+    Console.WriteLine($"\nВсего клиентов: {total}");
+    Console.WriteLine($"Активных клиентов: {active}");
 }
