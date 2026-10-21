@@ -20,7 +20,6 @@ public sealed class FitnessContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Конфигурация клиентов
         modelBuilder.Entity<Client>(entity =>
         {
             entity.ToTable("clients");
@@ -35,7 +34,6 @@ public sealed class FitnessContext : DbContext
             entity.Property(c => c.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
         });
 
-        // Конфигурация посещений (Задание 9)
         modelBuilder.Entity<Visit>(entity =>
         {
             entity.ToTable("visits");
@@ -46,7 +44,6 @@ public sealed class FitnessContext : DbContext
             entity.Property(v => v.VisitDate).HasColumnName("visit_date").HasColumnType("date").IsRequired();
             entity.Property(v => v.Note).HasColumnName("note").HasMaxLength(500);
 
-            // Настройка связи: один клиент - много посещений
             entity.HasOne(v => v.Client)
                   .WithMany(c => c.Visits)
                   .HasForeignKey(v => v.ClientId)

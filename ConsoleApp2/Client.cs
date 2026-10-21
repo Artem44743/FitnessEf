@@ -16,4 +16,5 @@ public sealed class Client
 
     public string Status { get; set; } = "active";
     public List<Visit> Visits { get; set; } = new();
+    public string? Note { get; set; }
 }
