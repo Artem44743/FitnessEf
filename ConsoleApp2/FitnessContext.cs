@@ -32,6 +32,8 @@ public sealed class FitnessContext : DbContext
             entity.Property(c => c.Email).HasColumnName("email").HasMaxLength(254);
             entity.Property(c => c.RegistrationDate).HasColumnName("registration_date").HasColumnType("date").IsRequired();
             entity.Property(c => c.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+
+            entity.Property(c => c.Note).HasColumnName("note").HasMaxLength(500);
         });
 
         modelBuilder.Entity<Visit>(entity =>
